@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="原油决策">
+  <title>原油汽柴油决策App升级版</title>
+  <style>
+    :root{--bg:#07111f;--card:#101827;--card2:#172033;--line:#2c3a52;--text:#f8fafc;--muted:#93a4bb;--blue:#38bdf8;--green:#22c55e;--red:#ef4444;--yellow:#facc15;--orange:#fb923c;--purple:#a78bfa}
+    *{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,#0f172a,#020617);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+    .wrap{max-width:540px;margin:0 auto;padding:14px 14px 96px} h1{font-size:22px;margin:14px 0 6px}.sub{color:var(--muted);font-size:13px;line-height:1.5}
+    .card{background:rgba(16,24,39,.94);border:1px solid var(--line);border-radius:20px;padding:14px;margin:12px 0;box-shadow:0 10px 25px rgba(0,0,0,.22)}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+    label{font-size:12px;color:var(--muted);display:block;margin:4px 0 6px} input,select,button{width:100%;border-radius:13px;border:1px solid var(--line);background:#020617;color:var(--text);padding:12px;font-size:16px;outline:none}
+    button{border:0;background:linear-gradient(135deg,#0284c7,#38bdf8);font-weight:800;color:white}button.secondary{background:#1f2937;color:#e5e7eb;border:1px solid var(--line)}button.danger{background:#7f1d1d}
+    .hero{display:grid;grid-template-columns:1fr 1fr;gap:10px}.box{background:#020617;border:1px solid var(--line);border-radius:16px;padding:12px}.box .name{font-size:12px;color:var(--muted)}.box .val{font-size:25px;font-weight:900;margin-top:5px}.box .chg{font-size:13px;margin-top:2px}
+    .score{font-size:54px;font-weight:1000;text-align:center;line-height:1}.decision{text-align:center;font-size:22px;font-weight:1000;margin-top:8px}.hint{text-align:center;color:var(--muted);font-size:13px;margin-top:8px;line-height:1.55}
+    .pill{display:inline-block;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800}.ok{background:rgba(34,197,94,.18);color:#86efac}.bad{background:rgba(239,68,68,.18);color:#fecaca}.flat{background:rgba(250,204,21,.15);color:#fde68a}.info{background:rgba(56,189,248,.16);color:#bae6fd}
+    table{width:100%;border-collapse:collapse;font-size:13px}td,th{border-bottom:1px solid var(--line);padding:9px 4px;text-align:center}th{color:var(--muted);font-weight:700}.small{font-size:12px;color:var(--muted);line-height:1.5}.hide{display:none}
+    canvas{width:100%;height:190px;background:#020617;border:1px solid var(--line);border-radius:16px;margin-top:10px}
+    .bottom{position:fixed;left:0;right:0;bottom:0;background:rgba(2,6,23,.92);backdrop-filter:blur(12px);border-top:1px solid var(--line)}.bottom .inner{max-width:540px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:10px 14px calc(10px + env(safe-area-inset-bottom))}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>原油汽柴油决策 App · 升级版</h1>
+  <div class="sub">无 Token 自动抓 WTI / Brent；汽柴油裂解差、汽柴油产销比手填；新增趋势图、拐点提示、历史记录。</div>
+
+  <div class="card">
+    <div class="row">
+      <div><label>日期</label><input id="date" type="date"></div>
+      <div><label>行情源</label><select id="source" onchange="saveAll(false)"><option value="yahoo">Yahoo公开行情</option><option value="stooq">Stooq公开行情</option></select></div>
+    </div>
+    <div class="row" style="margin-top:10px"><button onclick="fetchOil()">自动抓原油</button><button class="secondary" onclick="toggleSettings()">参数设置</button></div>
+    <div class="small" id="fetchStatus" style="margin-top:8px">点“自动抓原油”。失败时可切换行情源或手填。</div>
+  </div>
+
+  <div id="settings" class="card hide">
+    <div class="row"><div><label>汽油裂解强</label><input id="gasCrackHigh" type="number" value="18"></div><div><label>汽油裂解弱</label><input id="gasCrackLow" type="number" value="10"></div></div>
+    <div class="row"><div><label>柴油裂解强</label><input id="dieselCrackHigh" type="number" value="22"></div><div><label>柴油裂解弱</label><input id="dieselCrackLow" type="number" value="12"></div></div>
+    <div class="row"><div><label>产销强%</label><input id="ratioHigh" type="number" value="100"></div><div><label>产销弱%</label><input id="ratioLow" type="number" value="80"></div></div>
+    <div class="row"><div><label>原油涨幅强%</label><input id="oilHigh" type="number" value="1.5"></div><div><label>原油跌幅强%</label><input id="oilLow" type="number" value="-1.5"></div></div>
+    <button class="secondary" onclick="saveAll()" style="margin-top:10px">保存参数</button>
+  </div>
+
+  <div class="card">
+    <div class="hero">
+      <div class="box"><div class="name">WTI</div><div class="val" id="wtiShow">--</div><div class="chg" id="wtiChgShow">--</div></div>
+      <div class="box"><div class="name">Brent</div><div class="val" id="brentShow">--</div><div class="chg" id="brentChgShow">--</div></div>
+    </div>
+    <div class="row" style="margin-top:10px"><div><label>WTI价格</label><input id="wti" type="number" step="0.01" oninput="calc()"></div><div><label>WTI涨跌幅%</label><input id="wtiPct" type="number" step="0.01" oninput="calc()"></div></div>
+    <div class="row"><div><label>Brent价格</label><input id="brent" type="number" step="0.01" oninput="calc()"></div><div><label>Brent涨跌幅%</label><input id="brentPct" type="number" step="0.01" oninput="calc()"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><div><label>汽油裂解差</label><input id="gasCrack" type="number" step="0.01" oninput="calc()"></div><div><label>柴油裂解差</label><input id="dieselCrack" type="number" step="0.01" oninput="calc()"></div></div>
+    <div class="row"><div><label>汽油产销比%</label><input id="gasRatio" type="number" step="0.1" oninput="calc()"></div><div><label>柴油产销比%</label><input id="dieselRatio" type="number" step="0.1" oninput="calc()"></div></div>
+    <div class="row"><div><label>调价预期 元/吨</label><input id="adjust" type="number" step="1" oninput="calc()"></div><div><label>消息面</label><select id="news" onchange="calc()"><option value="0">无明显消息 0</option><option value="2">利多 +2</option><option value="-2">利空 -2</option></select></div></div>
+  </div>
+
+  <div class="card">
+    <div class="score" id="score">0</div><div class="decision" id="decision">观望</div><div class="hint" id="hint">填写数据后自动判断。</div>
+    <div class="row3" style="margin-top:12px"><div class="box"><div class="name">机会等级</div><div id="chance" class="pill flat">一般</div></div><div class="box"><div class="name">风险等级</div><div id="risk" class="pill flat">中</div></div><div class="box"><div class="name">拐点提示</div><div id="turning" class="pill info">待观察</div></div></div>
+  </div>
+
+  <div class="card"><div style="font-weight:900">得分明细</div><table><thead><tr><th>项目</th><th>评分</th><th>说明</th></tr></thead><tbody id="scoreRows"></tbody></table></div>
+
+  <div class="card"><div style="font-weight:900">最近趋势</div><canvas id="chart" width="500" height="210"></canvas><div class="small">显示最近30条总分趋势；保存每天数据后会自动更新。</div></div>
+
+  <div class="card">
+    <div class="row"><button onclick="saveToday()">保存今天</button><button class="secondary" onclick="exportCsv()">导出CSV</button></div>
+    <button class="danger" onclick="clearHistory()" style="margin-top:10px">清空历史记录</button>
+  </div>
+
+  <div class="card"><div style="font-weight:900;margin-bottom:8px">最近记录</div><table><thead><tr><th>日期</th><th>WTI</th><th>Brent</th><th>分数</th><th>策略</th></tr></thead><tbody id="history"></tbody></table></div>
+</div>
+
+<div class="bottom"><div class="inner"><button onclick="calc()">计算</button><button class="secondary" onclick="saveToday()">保存</button><button class="secondary" onclick="window.scrollTo({top:0,behavior:'smooth'})">顶部</button></div></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const keys=["date","source","wti","wtiPct","brent","brentPct","gasCrack","dieselCrack","gasRatio","dieselRatio","adjust","news","gasCrackHigh","gasCrackLow","dieselCrackHigh","dieselCrackLow","ratioHigh","ratioLow","oilHigh","oilLow"];
+function num(id){const v=parseFloat($(id).value);return Number.isFinite(v)?v:null} function fmt(v){return v===null||v===""?"--":Number(v).toFixed(2)} function pct(v){return v===null||v===""?"--":Number(v).toFixed(2)+"%"}
+function scoreRange(value,high,low,hs=2,ls=-2){if(value===null)return 0;if(value>=high)return hs;if(value<=low)return ls;return 0} function scoreAdjust(v){if(v===null)return 0;if(v>=50)return 1;if(v<=-50)return -1;return 0}
+function lastSavedPrice(field){const arr=JSON.parse(localStorage.getItem("oilProHistory")||"[]");for(const x of arr){const v=parseFloat(x[field]);if(Number.isFinite(v))return v}return null}
+function estimatePct(newPrice,oldPrice){if(!Number.isFinite(newPrice)||!Number.isFinite(oldPrice)||oldPrice===0)return null;return (newPrice-oldPrice)/oldPrice*100}
+async function fetchYahoo(symbol){const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`;const res=await fetch(url);if(!res.ok)throw new Error("Yahoo请求失败 "+res.status);const j=await res.json();const r=j.chart.result[0];const q=r.indicators.quote[0].close.filter(x=>x!==null);const last=q[q.length-1],prev=q[q.length-2];const pc=(Number.isFinite(last)&&Number.isFinite(prev)&&prev!==0)?(last-prev)/prev*100:null;return {price:last,pct:pc}}
+async function fetchStooq(symbol){const url=`https://stooq.com/q/l/?s=${encodeURIComponent(symbol)}&f=sd2t2ohlcv&h&e=csv`;const res=await fetch(url);if(!res.ok)throw new Error("Stooq请求失败 "+res.status);const txt=await res.text();const lines=txt.trim().split(/\r?\n/);if(lines.length<2)throw new Error("Stooq无数据");const p=lines[1].split(",");return {price:parseFloat(p[6]),pct:null}}
+async function fetchOil(){try{$("fetchStatus").textContent="正在抓取原油...";let wti,brent;if($("source").value==="stooq"){wti=await fetchStooq("cl.f");brent=await fetchStooq("brn.f")}else{wti=await fetchYahoo("CL=F");brent=await fetchYahoo("BZ=F")}if(Number.isFinite(wti.price))$("wti").value=wti.price.toFixed(2);if(Number.isFinite(brent.price))$("brent").value=brent.price.toFixed(2);let wp=wti.pct,bp=brent.pct;if(!Number.isFinite(wp))wp=estimatePct(wti.price,lastSavedPrice("wti"));if(!Number.isFinite(bp))bp=estimatePct(brent.price,lastSavedPrice("brent"));if(Number.isFinite(wp))$("wtiPct").value=wp.toFixed(2);if(Number.isFinite(bp))$("brentPct").value=bp.toFixed(2);$("fetchStatus").textContent="原油已更新。";calc()}catch(e){$("fetchStatus").textContent="自动抓取失败："+e.message+"。可切换行情源或手填。"}}
+function calc(){const oilAvg=((num("wtiPct")??0)+(num("brentPct")??0))/2;const oilScore=scoreRange(oilAvg,num("oilHigh")??1.5,num("oilLow")??-1.5);const gasCrackScore=scoreRange(num("gasCrack"),num("gasCrackHigh")??18,num("gasCrackLow")??10);const dieselCrackScore=scoreRange(num("dieselCrack"),num("dieselCrackHigh")??22,num("dieselCrackLow")??12);const gasRatioScore=scoreRange(num("gasRatio"),num("ratioHigh")??100,num("ratioLow")??80);const dieselRatioScore=scoreRange(num("dieselRatio"),num("ratioHigh")??100,num("ratioLow")??80);const adjustScore=scoreAdjust(num("adjust"));const newsScore=parseInt($("news").value||"0",10);const total=oilScore+gasCrackScore+dieselCrackScore+gasRatioScore+dieselRatioScore+adjustScore+newsScore;let decision="观望",hint="震荡区间，少量快进快出。";if(total>=6){decision="强多：加库存/锁价";hint="原油、利润或供需共振偏强，可提高备货积极性。"}else if(total>=3){decision="偏多：小幅加库存";hint="适度补货，重点看裂解差是否继续增强。"}else if(total<=-6){decision="强空：降库存/延迟采购";hint="下行压力较大，优先控制库存风险。"}else if(total<=-3){decision="偏空：少进快出";hint="需求或利润偏弱，谨慎采购。"}if(oilScore>0&&gasCrackScore<0&&dieselCrackScore<0)hint+=" 特别注意：原油涨但裂解差弱，容易高位接盘。";if((gasCrackScore>0||dieselCrackScore>0)&&(gasRatioScore>0||dieselRatioScore>0))hint+=" 利润与产销至少一端共振，机会质量较好。";$("score").textContent=total;$("decision").textContent=decision;$("hint").textContent=hint;$("wtiShow").textContent=fmt(num("wti"));$("brentShow").textContent=fmt(num("brent"));$("wtiChgShow").textContent=pct(num("wtiPct"));$("brentChgShow").textContent=pct(num("brentPct"));$("chance").textContent=total>=6?"高":total>=3?"中高":total<=-3?"低":"一般";$("chance").className="pill "+(total>=3?"ok":total<=-3?"bad":"flat");$("risk").textContent=total<=-6|| (oilScore>0&&gasCrackScore<0&&dieselCrackScore<0)?"高":total<=-3?"偏高":"中";$("risk").className="pill "+(($("risk").textContent==="高"||$("risk").textContent==="偏高")?"bad":"flat");$("turning").textContent=detectTurning(total);$("scoreRows").innerHTML=[["原油趋势",oilScore,`平均涨跌幅 ${oilAvg.toFixed(2)}%`],["汽油裂解",gasCrackScore,"强=+2，弱=-2"],["柴油裂解",dieselCrackScore,"强=+2，弱=-2"],["汽油产销",gasRatioScore,"≥100%强，≤80%弱"],["柴油产销",dieselRatioScore,"≥100%强，≤80%弱"],["调价预期",adjustScore,"≥50元 +1，≤-50元 -1"],["消息面",newsScore,"利多+2 / 利空-2"]].map(r=>`<tr><td>${r[0]}</td><td><span class="pill ${r[1]>0?'ok':r[1]<0?'bad':'flat'}">${r[1]}</span></td><td>${r[2]}</td></tr>`).join("");saveAll(false);drawChart();return {total,decision}}
+function detectTurning(today){const arr=JSON.parse(localStorage.getItem("oilProHistory")||"[]");if(arr.length<2)return "待观察";const a=Number(arr[0].total),b=Number(arr[1].total);if(today>=3&&a<0)return "转强";if(today<=-3&&a>0)return "转弱";if(today>a&&a>b)return "上行";if(today<a&&a<b)return "下行";return "震荡"}
+function saveAll(show=true){const data={};keys.forEach(k=>data[k]=$(k)?.value??"");localStorage.setItem("oilProState",JSON.stringify(data));if(show)$("fetchStatus").textContent="已保存。"}
+function loadAll(){const data=JSON.parse(localStorage.getItem("oilProState")||"{}");keys.forEach(k=>{if(data[k]!==undefined&&$(k))$(k).value=data[k]});if(!$("date").value)$("date").value=new Date().toISOString().slice(0,10);renderHistory();calc()}
+function saveToday(){const result=calc();const record={date:$("date").value,wti:$("wti").value,wtiPct:$("wtiPct").value,brent:$("brent").value,brentPct:$("brentPct").value,gasCrack:$("gasCrack").value,dieselCrack:$("dieselCrack").value,gasRatio:$("gasRatio").value,dieselRatio:$("dieselRatio").value,adjust:$("adjust").value,news:$("news").value,total:result.total,decision:result.decision};let arr=JSON.parse(localStorage.getItem("oilProHistory")||"[]");arr=arr.filter(x=>x.date!==record.date);arr.unshift(record);arr=arr.slice(0,180);localStorage.setItem("oilProHistory",JSON.stringify(arr));renderHistory();drawChart();$("fetchStatus").textContent="今天记录已保存。"}
+function renderHistory(){const arr=JSON.parse(localStorage.getItem("oilProHistory")||"[]");$("history").innerHTML=arr.slice(0,10).map(x=>`<tr><td>${x.date}</td><td>${x.wti||"--"}</td><td>${x.brent||"--"}</td><td>${x.total}</td><td>${x.decision}</td></tr>`).join("")||`<tr><td colspan="5" class="small">暂无记录</td></tr>`}
+function drawChart(){const c=$("chart"),ctx=c.getContext("2d"),arr=JSON.parse(localStorage.getItem("oilProHistory")||"[]").slice(0,30).reverse();ctx.clearRect(0,0,c.width,c.height);ctx.strokeStyle="#334155";ctx.lineWidth=1;for(let i=0;i<5;i++){let y=20+i*40;ctx.beginPath();ctx.moveTo(30,y);ctx.lineTo(c.width-15,y);ctx.stroke()}ctx.fillStyle="#94a3b8";ctx.font="12px Arial";ctx.fillText("总分趋势",18,18);if(arr.length<2){ctx.fillText("保存两天以上数据后显示趋势",145,110);return}const vals=arr.map(x=>Number(x.total));const min=Math.min(-8,...vals),max=Math.max(8,...vals);const xstep=(c.width-55)/(arr.length-1);function y(v){return 190-(v-min)/(max-min)*160}ctx.strokeStyle="#38bdf8";ctx.lineWidth=3;ctx.beginPath();vals.forEach((v,i)=>{const x=30+i*xstep,yy=y(v);if(i===0)ctx.moveTo(x,yy);else ctx.lineTo(x,yy)});ctx.stroke();vals.forEach((v,i)=>{const x=30+i*xstep,yy=y(v);ctx.fillStyle=v>=3?"#22c55e":v<=-3?"#ef4444":"#facc15";ctx.beginPath();ctx.arc(x,yy,4,0,Math.PI*2);ctx.fill()})}
+function exportCsv(){const arr=JSON.parse(localStorage.getItem("oilProHistory")||"[]");const header=["日期","WTI","WTI涨跌%","Brent","Brent涨跌%","汽油裂解","柴油裂解","汽油产销%","柴油产销%","调价预期","消息面","总分","策略"];const rows=arr.map(x=>[x.date,x.wti,x.wtiPct,x.brent,x.brentPct,x.gasCrack,x.dieselCrack,x.gasRatio,x.dieselRatio,x.adjust,x.news,x.total,x.decision]);const csv=[header,...rows].map(r=>r.map(v=>`"${String(v??"").replaceAll('"','""')}"`).join(",")).join("\n");const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="原油决策记录.csv";a.click()}
+function clearHistory(){if(confirm("确定清空历史记录？")){localStorage.removeItem("oilProHistory");renderHistory();drawChart()}} function toggleSettings(){$("settings").classList.toggle("hide")} loadAll();
+</script>
+</body>
+</html>
