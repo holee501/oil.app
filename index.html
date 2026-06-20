@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>成品油营销决策模型 Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg-primary: #0f1923; --bg-secondary: #152230; --bg-card: #1a2d3d;
+  --bg-input: #0d1a26; --border: #2a4055; --border-active: #f0a030;
+  --text-primary: #e8edf2; --text-secondary: #8899aa; --text-muted: #5a6d7e;
+  --accent: #f0a030; --accent-glow: rgba(240,160,48,0.25);
+  --green: #00c897; --green-bg: rgba(0,200,151,0.12);
+  --red: #ff5252; --red-bg: rgba(255,82,82,0.12);
+  --yellow: #ffc048; --yellow-bg: rgba(255,192,72,0.12);
+  --blue: #4da6ff; --blue-bg: rgba(77,166,255,0.12);
+  --purple: #b388ff; --purple-bg: rgba(179,136,255,0.12);
+  --radius: 10px; --radius-sm: 6px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.3); --transition: 0.2s ease;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; line-height: 1.5;
+}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* Topbar */
+.topbar {
+  background: var(--bg-secondary); border-bottom: 1px solid var(--border);
+  padding: 0 20px; height: 52px; display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+}
+.topbar .logo { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; }
+.topbar .logo .icon { font-size: 22px; }
+.topbar .logo span { color: var(--accent); }
+.topbar .datetime { font-size: 12px; color: var(--text-secondary); }
+.signal-pill {
+  padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: 600;
+}
+.signal-pill.bullish { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+.signal-pill.bearish { background: var(--red-bg); color: var(--red); border: 1px solid var(--red); }
+.signal-pill.neutral  { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow); }
+
+/* Main Grid */
+.main-grid {
+  display: grid; grid-template-columns: 440px 1fr 400px; gap: 14px; padding: 14px 16px;
+}
+
+/* Cards */
+.card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px; box-shadow: var(--shadow);
+}
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.card-header h3 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); }
+.badge { font-size: 10px; padding: 2px 10px; border-radius: 10px; font-weight: 600; }
+.badge-morning { background: #4da6ff22; color: var(--blue); }
+.badge-midday  { background: #ffc04822; color: var(--yellow); }
+.badge-evening { background: #7c4dff22; color: var(--purple); }
+
+/* Tab Switcher */
+.tab-switcher { display: flex; gap: 3px; margin-bottom: 12px; background: var(--bg-input); border-radius: var(--radius-sm); padding: 3px; }
+.tab-btn { flex: 1; padding: 7px 0; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; color: var(--text-muted); background: transparent; transition: var(--transition); }
+.tab-btn.active { background: var(--accent); color: #000; }
+.tab-btn:hover:not(.active) { color: var(--text-primary); }
+
+/* Form */
+.form-group { margin-bottom: 8px; }
+.form-group label { display: block; font-size: 10px; font-weight: 600; color: var(--text-muted); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+.form-group .input-row { display: flex; gap: 5px; align-items: center; }
+.form-group input {
+  flex: 1; padding: 7px 9px; background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text-primary); font-size: 12px; font-family: inherit;
+  outline: none; transition: var(--transition); min-width: 0;
+}
+.form-group input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+.form-group .unit { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+.brent-change {
+  font-size: 11px; font-weight: 700; white-space: nowrap; padding: 3px 8px; border-radius: 4px;
+  margin-left: 4px; display: inline-block; min-width: 70px; text-align: center;
+}
+.brent-change.up   { color: #ff5252; background: rgba(255,82,82,0.1); }  /* 红涨 */
+.brent-change.down { color: #00c897; background: rgba(0,200,151,0.1); }  /* 绿跌 */
+.brent-change.flat { color: var(--text-muted); }
+
+/* Product row (3 columns for 92# / 95# / 0#) */
+.product-row {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+}
+.product-cell {
+  background: var(--bg-input); border-radius: var(--radius-sm); padding: 8px 10px;
+}
+.product-cell .pc-label {
+  font-size: 10px; font-weight: 700; margin-bottom: 6px; letter-spacing: 0.5px;
+}
+.product-cell .pc-label.gas92 { color: #4da6ff; }
+.product-cell .pc-label.gas95 { color: #ff9800; }
+.product-cell .pc-label.diesel0 { color: #78909c; }
+.product-cell input {
+  width: 100%; padding: 6px 8px; background: #080f17; border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text-primary); font-size: 12px; font-family: inherit;
+  outline: none; margin-bottom: 4px;
+}
+.product-cell input:focus { border-color: var(--accent); }
+.product-cell .pc-unit { font-size: 9px; color: var(--text-muted); display: block; text-align: right; }
+
+.form-section-title {
+  font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase;
+  letter-spacing: 1px; margin: 10px 0 6px; padding-top: 8px; border-top: 1px dashed var(--border);
+}
+.form-section-title.first { margin-top: 0; padding-top: 0; border-top: none; }
+
+/* Retail ceiling section */
+.retail-ceiling-box {
+  background: #1a1030; border: 1px solid #7c4dff33; border-radius: var(--radius-sm); padding: 8px 10px; margin-top: 4px;
+}
+.retail-ceiling-box .rc-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.retail-ceiling-box .rc-header span { font-size: 9px; color: var(--purple); font-weight: 600; }
+.retail-ceiling-box .rc-date { font-size: 9px; color: var(--text-muted); }
+
+.btn-row { display: flex; gap: 6px; margin-top: 10px; }
+.btn {
+  flex: 1; padding: 9px 0; border: none; border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 600; cursor: pointer; letter-spacing: 0.5px; transition: var(--transition);
+}
+.btn-primary { background: var(--accent); color: #000; }
+.btn-primary:hover { filter: brightness(1.1); }
+.btn-secondary { background: var(--border); color: var(--text-primary); font-size: 10px; }
+.btn-secondary:hover { background: #354a60; }
+.btn-danger { background: var(--red); color: #fff; font-size: 10px; flex: 0.5; }
+.btn-danger:hover { filter: brightness(1.15); }
+
+/* Charts */
+.charts-stack { display: flex; flex-direction: column; gap: 12px; }
+.chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; box-shadow: var(--shadow); }
+.chart-card canvas { width: 100% !important; max-height: 200px; }
+
+/* Decision Cards (per product) */
+.decision-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.decision-card {
+  background: var(--bg-card); border: 2px solid var(--border); border-radius: var(--radius);
+  padding: 12px 14px; box-shadow: var(--shadow);
+}
+.decision-card.buy  { border-color: var(--green); box-shadow: 0 0 20px rgba(0,200,151,0.10); }
+.decision-card.sell { border-color: var(--red); box-shadow: 0 0 20px rgba(255,82,82,0.10); }
+.decision-card.hold { border-color: var(--yellow); box-shadow: 0 0 20px rgba(255,192,72,0.10); }
+.dc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.dc-product { font-size: 13px; font-weight: 700; }
+.dc-product.gas92 { color: #4da6ff; } .dc-product.gas95 { color: #ff9800; } .dc-product.diesel0 { color: #b0bec5; }
+.dc-badge {
+  padding: 4px 12px; border-radius: 14px; font-size: 12px; font-weight: 700;
+}
+.dc-badge.buy  { background: var(--green-bg); color: var(--green); }
+.dc-badge.sell { background: var(--red-bg); color: var(--red); }
+.dc-badge.hold { background: var(--yellow-bg); color: var(--yellow); }
+.dc-summary { font-size: 11px; color: var(--text-secondary); line-height: 1.6; }
+.dc-summary strong { color: var(--text-primary); }
+
+/* Metrics */
+.metrics-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.metric-box { background: var(--bg-input); border-radius: var(--radius-sm); padding: 10px; text-align: center; }
+.metric-box .val { font-size: 18px; font-weight: 700; }
+.metric-box .lbl { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+.val.up { color: var(--green); } .val.down { color: var(--red); } .val.warn { color: var(--yellow); }
+
+/* History */
+.history-section { grid-column: 1 / -1; }
+.table-wrap { overflow-x: auto; max-height: 300px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+th { background: var(--bg-secondary); padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; font-size: 9px; border-bottom: 2px solid var(--border); white-space: nowrap; position: sticky; top: 0; }
+td { padding: 6px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+tr:hover td { background: var(--bg-input); }
+
+/* Responsive */
+@media (max-width: 1400px) { .main-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; padding: 8px; } }
+</style>
+</head>
+<body>
+
+<!-- ===== TOP BAR ===== -->
+<header class="topbar">
+  <div class="logo"><span class="icon">⛽</span> 成品油营销决策模型 <span>Dashboard</span></div>
+  <div class="datetime" id="liveClock">--</div>
+  <div class="signal-pill neutral" id="topSignal">● 等待数据录入</div>
+</header>
+
+<!-- ===== MAIN GRID ===== -->
+<div class="main-grid">
+
+  <!-- ===== LEFT: Data Entry ===== -->
+  <div class="card" id="entryPanel">
+    <div class="card-header">
+      <h3>📋 数据录入</h3>
+      <span class="badge badge-morning" id="periodBadge">早间</span>
+    </div>
+
+    <div class="tab-switcher">
+      <button class="tab-btn active" data-tab="morning">🌅 早间 (8:00)</button>
+      <button class="tab-btn" data-tab="midday">☀️ 午间 (12:00)</button>
+      <button class="tab-btn" data-tab="evening">🌙 晚间 (18:00)</button>
+    </div>
+
+    <form id="entryForm">
+      <!-- Brent (all periods) -->
+      <div class="form-group">
+        <label>布伦特原油价格</label>
+        <div class="input-row">
+          <input type="number" step="0.01" id="inpBrent" placeholder="例如 82.50" required>
+          <span class="unit">$/桶</span>
+          <span class="brent-change" id="brentChange" style="display:none">--</span>
+        </div>
+      </div>
+
+      <!-- ===== 三地变化率 & 调价窗口 (all periods) ===== -->
+      <div class="form-section-title first">🛢 国内调价信号（三地原油变化率）</div>
+      <div class="product-row">
+        <div class="product-cell">
+          <div class="pc-label" style="color:var(--purple)">三地变化率</div>
+          <input type="number" step="0.01" id="inpChangeRate" placeholder="例如 1.85 / -0.90">
+          <span class="pc-unit">% (正=涨)</span>
+        </div>
+        <div class="product-cell" style="visibility:hidden"><!-- spacer --></div>
+        <div class="product-cell">
+          <div class="pc-label" style="color:var(--purple)">距调价窗口</div>
+          <input type="number" step="1" min="0" max="10" id="inpWindowDays" placeholder="工作日(0-10)">
+          <span class="pc-unit">工作日</span>
+        </div>
+      </div>
+
+      <!-- ===== Inventory (all periods) ===== -->
+      <div class="form-section-title">📦 库存数据</div>
+      <div class="product-row" id="sectionInventory">
+        <div class="product-cell">
+          <div class="pc-label gas92">92# 汽油</div>
+          <input type="number" step="0.01" id="inpInvQty92" placeholder="数量(吨)">
+          <span class="pc-unit">吨</span>
+          <input type="number" step="0.01" id="inpInvCost92" placeholder="成本(元/吨)" style="margin-top:3px">
+          <span class="pc-unit">元/吨</span>
+        </div>
+        <div class="product-cell">
+          <div class="pc-label gas95">95# 汽油</div>
+          <input type="number" step="0.01" id="inpInvQty95" placeholder="数量(吨)">
+          <span class="pc-unit">吨</span>
+          <input type="number" step="0.01" id="inpInvCost95" placeholder="成本(元/吨)" style="margin-top:3px">
+          <span class="pc-unit">元/吨</span>
+        </div>
+        <div class="product-cell">
+          <div class="pc-label diesel0">0# 柴油</div>
+          <input type="number" step="0.01" id="inpInvQty0" placeholder="数量(吨)">
+          <span class="pc-unit">吨</span>
+          <input type="number" step="0.01" id="inpInvCost0" placeholder="成本(元/吨)" style="margin-top:3px">
+          <span class="pc-unit">元/吨</span>
+        </div>
+      </div>
+
+      <!-- ===== MIDDAY & EVENING: Prod-sales ratio + Procurement + Retail ===== -->
+      <div id="sectionMiddayEvening" style="display:none">
+
+        <!-- Production-Sales Ratio -->
+        <div class="form-section-title first">📊 山东地炼产销比（销量/产量×100%）</div>
+        <div class="product-row">
+          <div class="product-cell">
+            <div class="pc-label gas92">汽油</div>
+            <input type="number" step="0.1" id="inpRatioGas" placeholder="例如 98.5">
+            <span class="pc-unit">%</span>
+          </div>
+          <div class="product-cell" style="visibility:hidden"><!-- spacer --></div>
+          <div class="product-cell">
+            <div class="pc-label diesel0">柴油</div>
+            <input type="number" step="0.1" id="inpRatioDiesel" placeholder="例如 92.0">
+            <span class="pc-unit">%</span>
+          </div>
+        </div>
+
+        <!-- Procurement Price (= 市场价锚点) -->
+        <div class="form-section-title">💰 当日采购价格（市场价锚点）</div>
+        <div class="product-row">
+          <div class="product-cell">
+            <div class="pc-label gas92">92# 汽油</div>
+            <input type="number" step="0.01" id="inpProc92" placeholder="采购价">
+            <span class="pc-unit">元/吨</span>
+          </div>
+          <div class="product-cell">
+            <div class="pc-label gas95">95# 汽油</div>
+            <input type="number" step="0.01" id="inpProc95" placeholder="采购价">
+            <span class="pc-unit">元/吨</span>
+          </div>
+          <div class="product-cell">
+            <div class="pc-label diesel0">0# 柴油</div>
+            <input type="number" step="0.01" id="inpProc0" placeholder="采购价">
+            <span class="pc-unit">元/吨</span>
+          </div>
+        </div>
+
+        <!-- Retail Ceiling (Midday only, persisted) -->
+        <div id="sectionRetailCeiling">
+          <div class="retail-ceiling-box">
+            <div class="rc-header">
+              <span>🏷 最高零售限价（每10工作日更新）</span>
+              <span class="rc-date" id="rcUpdateDate">未设置</span>
+            </div>
+            <div class="product-row">
+              <div class="product-cell" style="background:transparent">
+                <div class="pc-label gas92">92# 汽油</div>
+                <input type="number" step="0.01" id="inpRetail92" placeholder="限价">
+                <span class="pc-unit">元/吨</span>
+              </div>
+              <div class="product-cell" style="background:transparent">
+                <div class="pc-label gas95">95# 汽油</div>
+                <input type="number" step="0.01" id="inpRetail95" placeholder="限价">
+                <span class="pc-unit">元/吨</span>
+              </div>
+              <div class="product-cell" style="background:transparent">
+                <div class="pc-label diesel0">0# 柴油</div>
+                <input type="number" step="0.01" id="inpRetail0" placeholder="限价">
+                <span class="pc-unit">元/吨</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary">✓ 提交数据</button>
+        <button type="button" class="btn btn-secondary" id="btnClearPeriod">清空</button>
+      </div>
+      <div class="btn-row" style="margin-top:4px">
+        <button type="button" class="btn btn-danger" id="btnClearAll">重置全部</button>
+        <button type="button" class="btn btn-secondary" id="btnExport">📥 导出CSV</button>
+        <button type="button" class="btn btn-secondary" id="btnDemo">🎲 演示</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ===== CENTER: Charts ===== -->
+  <div class="charts-stack">
+    <div class="chart-card">
+      <div class="card-header"><h3>📈 布伦特原油 · 三地变化率 · 产销比趋势</h3></div>
+      <canvas id="chartBrentRatio"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="card-header"><h3>💰 各品类采购价格趋势</h3></div>
+      <canvas id="chartProcurement"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="card-header"><h3>📉 批零价差趋势（采购价 vs 零售限价）</h3></div>
+      <canvas id="chartRetailSpread"></canvas>
+    </div>
+  </div>
+
+  <!-- ===== RIGHT: Decisions & Metrics ===== -->
+  <div>
+    <!-- Per-product decision cards -->
+    <div class="decision-row" id="decisionRow">
+      <div class="decision-card hold" id="dc92">
+        <div class="dc-header">
+          <span class="dc-product gas92">92# 汽油</span>
+          <span class="dc-badge hold">⏸ 观望</span>
+        </div>
+        <div class="dc-summary">等待录入数据...</div>
+      </div>
+      <div class="decision-card hold" id="dc95">
+        <div class="dc-header">
+          <span class="dc-product gas95">95# 汽油</span>
+          <span class="dc-badge hold">⏸ 观望</span>
+        </div>
+        <div class="dc-summary">等待录入数据...</div>
+      </div>
+      <div class="decision-card hold" id="dc0">
+        <div class="dc-header">
+          <span class="dc-product diesel0">0# 柴油</span>
+          <span class="dc-badge hold">⏸ 观望</span>
+        </div>
+        <div class="dc-summary">等待录入数据...</div>
+      </div>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="metrics-row">
+      <div class="metric-box">
+        <div class="val" id="metricBrent">--</div>
+        <div class="lbl">布伦特 $/桶</div>
+      </div>
+      <div class="metric-box">
+        <div class="val" id="metricChangeRate">--</div>
+        <div class="lbl">三地变化率 %</div>
+      </div>
+      <div class="metric-box">
+        <div class="val" id="metricWindow">--</div>
+        <div class="lbl">距调价窗口</div>
+      </div>
+    </div>
+
+    <!-- Per-product批零价差 -->
+    <div class="card" style="margin-bottom:8px">
+      <div class="card-header"><h3>🏷 批零价差（零售限价 - 采购价）</h3></div>
+      <div style="font-size:11px;line-height:2" id="retailSpreadSummary">等待录入数据...</div>
+    </div>
+
+    <!-- Inventory Summary -->
+    <div class="card">
+      <div class="card-header"><h3>🏭 库存概览</h3></div>
+      <div style="font-size:11px;line-height:2" id="inventorySummary">等待录入数据...</div>
+    </div>
+  </div>
+
+  <!-- ===== BOTTOM: History ===== -->
+  <div class="history-section card">
+    <div class="card-header">
+      <h3>📅 历史录入记录</h3>
+      <span style="font-size:10px;color:var(--text-muted)" id="recordCount">共 0 条</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>日期</th><th>时段</th><th>布伦特</th><th>三地变化率</th>
+          <th>汽油产销比</th><th>柴油产销比</th>
+          <th>92#采购</th><th>95#采购</th><th>0#采购</th>
+          <th>92#限价</th><th>95#限价</th><th>0#限价</th>
+          <th>92#库存</th><th>95#库存</th><th>0#库存</th>
+          <th>操作</th>
+        </tr></thead>
+        <tbody id="historyBody">
+          <tr><td colspan="16" style="text-align:center;color:var(--text-muted);padding:24px">暂无数据</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// =============================================
+// DATA MODEL
+// =============================================
+const PRODUCTS = ['92', '95', '0'];
+const PRODUCT_LABELS = { '92': '92# 汽油', '95': '95# 汽油', '0': '0# 柴油' };
+const PRODUCT_COLORS = { '92': '#4da6ff', '95': '#ff9800', '0': '#b0bec5' };
+const PRODUCT_CSS = { '92': 'gas92', '95': 'gas95', '0': 'diesel0' };
+
+const STORAGE_KEY = 'oil_marketing_v2';
+const RETAIL_KEY = 'oil_retail_ceiling_v2';
+let records = [];
+let currentPeriod = 'morning';
+
+// Retail ceiling: { '92': value, '95': value, '0': value, updatedAt: ISO }
+let retailCeiling = null;
+
+function loadData() {
+  try { records = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch(e) { records = []; }
+  try { retailCeiling = JSON.parse(localStorage.getItem(RETAIL_KEY)) || null; } catch(e) { retailCeiling = null; }
+}
+function saveRecords() { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }
+function saveRetailCeiling() {
+  if (retailCeiling) localStorage.setItem(RETAIL_KEY, JSON.stringify(retailCeiling));
+}
+loadData();
+
+// Latest values cache (for pre-filling forms)
+let latestValues = {};
+
+function rebuildLatestValues() {
+  latestValues = { brent: null, changeRate: null, windowDays: null };
+  PRODUCTS.forEach(p => {
+    latestValues['invQty'+p] = null; latestValues['invCost'+p] = null;
+    latestValues['proc'+p] = null;
+  });
+  latestValues.ratioGas = null; latestValues.ratioDiesel = null;
+
+  if (records.length === 0) {
+    // Fall back to retail ceiling
+    if (retailCeiling) {
+      PRODUCTS.forEach(p => { latestValues['retail'+p] = retailCeiling[p] || null; });
+    }
+    return;
+  }
+
+  const last = records[records.length - 1];
+  latestValues.brent = last.brent;
+  latestValues.changeRate = (last.changeRate !== undefined && last.changeRate !== null) ? last.changeRate : null;
+  latestValues.windowDays = (last.windowDays !== undefined && last.windowDays !== null) ? last.windowDays : null;
+  PRODUCTS.forEach(p => {
+    latestValues['invQty'+p] = last['invQty'+p] || null;
+    latestValues['invCost'+p] = last['invCost'+p] || null;
+    latestValues['proc'+p] = last['proc'+p] || null;
+    latestValues['retail'+p] = last['retail'+p] || (retailCeiling ? retailCeiling[p] : null);
+  });
+  latestValues.ratioGas = last.ratioGas || null;
+  latestValues.ratioDiesel = last.ratioDiesel || null;
+
+  // Retail ceiling: prefer persisted
+  if (retailCeiling) {
+    PRODUCTS.forEach(p => { latestValues['retail'+p] = retailCeiling[p] || latestValues['retail'+p]; });
+  }
+}
+rebuildLatestValues();
+
+// =============================================
+// DOM REFS
+// =============================================
+const $periodBadge = document.getElementById('periodBadge');
+const $sectionMiddayEvening = document.getElementById('sectionMiddayEvening');
+const $sectionRetailCeiling = document.getElementById('sectionRetailCeiling');
+const $inpBrent = document.getElementById('inpBrent');
+const $brentChange = document.getElementById('brentChange');
+const $rcUpdateDate = document.getElementById('rcUpdateDate');
+const $topSignal = document.getElementById('topSignal');
+const $historyBody = document.getElementById('historyBody');
+const $recordCount = document.getElementById('recordCount');
+
+// Input refs
+function inp(id) { return document.getElementById(id); }
+
+function updateRetailCeilingDisplay() {
+  if (retailCeiling && retailCeiling.updatedAt) {
+    const d = new Date(retailCeiling.updatedAt);
+    $rcUpdateDate.textContent = '更新于 ' + (d.getMonth()+1) + '/' + d.getDate();
+    PRODUCTS.forEach(p => {
+      const el = inp('inpRetail'+p);
+      if (el && retailCeiling[p]) el.value = retailCeiling[p];
+    });
+  }
+}
+updateRetailCeilingDisplay();
+
+// =============================================
+// CHARTS
+// =============================================
+const chartOpts = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { labels: { color: '#8899aa', font: { size: 10 }, boxWidth: 10, padding: 12 } } },
+  scales: {
+    x: { ticks: { color: '#5a6d7e', font: { size: 9 }, maxRotation: 45 }, grid: { color: '#1a2d3d' } },
+    y: { ticks: { color: '#5a6d7e', font: { size: 9 } }, grid: { color: '#1a2d3d' } }
+  }
+};
+
+const ctxBrent = document.getElementById('chartBrentRatio').getContext('2d');
+const chartBrentRatio = new Chart(ctxBrent, {
+  type: 'line',
+  data: { labels: [], datasets: [
+    { label: '布伦特 $/桶', data: [], borderColor: '#f0a030', backgroundColor: 'rgba(240,160,48,0.06)', fill: true, tension: 0.3, pointRadius: 3, yAxisID: 'y' },
+    { label: '三地变化率 %', data: [], borderColor: '#b388ff', backgroundColor: 'rgba(179,136,255,0.06)', tension: 0.3, pointRadius: 2, yAxisID: 'y2' },
+    { label: '汽油产销比 %', data: [], borderColor: '#4da6ff', tension: 0.3, pointRadius: 2, yAxisID: 'y1', borderDash: [4,3] },
+    { label: '柴油产销比 %', data: [], borderColor: '#b0bec5', tension: 0.3, pointRadius: 2, yAxisID: 'y1', borderDash: [2,2] }
+  ]},
+  options: {
+    ...chartOpts,
+    scales: {
+      ...chartOpts.scales,
+      y: { ...chartOpts.scales.y, position: 'left', title: { display: true, text: '$/桶', color: '#f0a030', font: { size: 10 } } },
+      y1: { position: 'right', ticks: { color: '#5a6d7e', font: { size: 9 } }, grid: { display: false }, title: { display: true, text: '产销比%', color: '#8899aa', font: { size: 10 } }, suggestedMin: 85, suggestedMax: 115 },
+      y2: { position: 'right', display: false, suggestedMin: -3, suggestedMax: 3 }
+    }
+  }
+});
+
+const ctxProc = document.getElementById('chartProcurement').getContext('2d');
+const chartProcurement = new Chart(ctxProc, {
+  type: 'line',
+  data: { labels: [], datasets: [
+    { label: '92# 采购', data: [], borderColor: '#4da6ff', tension: 0.3, pointRadius: 2 },
+    { label: '95# 采购', data: [], borderColor: '#ff9800', tension: 0.3, pointRadius: 2 },
+    { label: '0# 采购', data: [], borderColor: '#b0bec5', tension: 0.3, pointRadius: 2 }
+  ]},
+  options: chartOpts
+});
+
+const ctxSpread = document.getElementById('chartRetailSpread').getContext('2d');
+const chartRetailSpread = new Chart(ctxSpread, {
+  type: 'bar',
+  data: { labels: [], datasets: [
+    { label: '92# 批零价差', data: [], backgroundColor: 'rgba(77,166,255,0.4)', borderColor: '#4da6ff', borderWidth: 1 },
+    { label: '95# 批零价差', data: [], backgroundColor: 'rgba(255,152,0,0.4)', borderColor: '#ff9800', borderWidth: 1 },
+    { label: '0# 批零价差', data: [], backgroundColor: 'rgba(176,190,197,0.4)', borderColor: '#b0bec5', borderWidth: 1 }
+  ]},
+  options: chartOpts
+});
+
+// =============================================
+// SIGNAL THRESHOLDS (可按经验调整)
+// =============================================
+// 三地变化率：约 ±0.8% 对应国内调价 50元/吨 触发线；±2% 视为强信号
+const CR_TRIGGER = 0.8;   // 进入调价预期的变化率(%)
+const CR_STRONG  = 2.0;   // 强烈调价预期(%)
+const WINDOW_NEAR = 2;    // 距调价窗口≤此工作日数视为临近
+const PROC_MOM_PCT = 0.3; // 采购价动量判定阈值(%)
+const PNL_TAKE = 300;     // 库存浮盈达此值(元/吨)可考虑兑现
+
+// 找某品种"上一条有采购价的记录"，用于采购价动量
+function prevProcOf(recordsList, prodKey) {
+  for (let i = recordsList.length - 2; i >= 0; i--) {
+    if (recordsList[i]['proc'+prodKey]) return parseFloat(recordsList[i]['proc'+prodKey]);
+  }
+  return null;
+}
+
+// =============================================
+// DECISION ENGINE (per product) —— 以当日采购价为市场锚点
+// =============================================
+function analyzeProduct(prodKey, recordsList) {
+  if (!recordsList || recordsList.length === 0) return null;
+
+  const latest = recordsList[recordsList.length - 1];
+  const prev = recordsList.length > 1 ? recordsList[recordsList.length - 2] : null;
+
+  const brent = parseFloat(latest.brent);
+  const changeRate = (latest.changeRate !== undefined && latest.changeRate !== null && latest.changeRate !== '') ? parseFloat(latest.changeRate) : null;
+  const windowDays = (latest.windowDays !== undefined && latest.windowDays !== null && latest.windowDays !== '') ? parseFloat(latest.windowDays) : null;
+  const ratioKey = (prodKey === '0') ? 'ratioDiesel' : 'ratioGas';
+  const prodSales = latest[ratioKey] ? parseFloat(latest[ratioKey]) : null;
+  const procurement = latest['proc'+prodKey] ? parseFloat(latest['proc'+prodKey]) : null; // 市场价锚点
+  const retailCeil = latest['retail'+prodKey] ? parseFloat(latest['retail'+prodKey]) : null;
+  const invQty = latest['invQty'+prodKey] ? parseFloat(latest['invQty'+prodKey]) : null;
+  const invCost = latest['invCost'+prodKey] ? parseFloat(latest['invCost'+prodKey]) : null;
+
+  // 批零价差 = 零售限价 − 采购价
+  const retailSpread = (retailCeil !== null && procurement !== null) ? (retailCeil - procurement) : null;
+  // 库存浮盈 = 当前市场价(采购价) − 库存成本
+  const inventoryPnl = (procurement !== null && invCost !== null) ? (procurement - invCost) : null;
+  const inventoryPnlPct = (inventoryPnl !== null && invCost > 0) ? (inventoryPnl / invCost) * 100 : null;
+
+  // 采购价动量（与上一条有采购价的记录比）
+  const prevProc = prevProcOf(recordsList, prodKey);
+  let procTrend = 'flat', procMomPct = 0;
+  if (procurement !== null && prevProc !== null && prevProc > 0) {
+    procMomPct = ((procurement - prevProc) / prevProc) * 100;
+    if (procMomPct > PROC_MOM_PCT) procTrend = 'rising';
+    else if (procMomPct < -PROC_MOM_PCT) procTrend = 'falling';
+  }
+
+  // 布伦特趋势
+  let brentTrend = 'stable', brentChangePct = 0;
+  if (prev) {
+    brentChangePct = ((brent - parseFloat(prev.brent)) / parseFloat(prev.brent)) * 100;
+    if (brentChangePct > 0.5) brentTrend = 'rising';
+    else if (brentChangePct < -0.5) brentTrend = 'falling';
+  }
+  if (recordsList.length >= 3) {
+    const b3 = parseFloat(recordsList[recordsList.length-3].brent);
+    const b2 = parseFloat(recordsList[recordsList.length-2].brent);
+    if (brent > b2 && b2 > b3) brentTrend = 'rising_strong';
+    if (brent < b2 && b2 < b3) brentTrend = 'falling_strong';
+  }
+
+  // 三地变化率 → 国内调价方向信号
+  let crSignal = 'flat';
+  if (changeRate !== null) {
+    if (changeRate >= CR_STRONG) crSignal = 'strong_up';
+    else if (changeRate >= CR_TRIGGER) crSignal = 'up';
+    else if (changeRate <= -CR_STRONG) crSignal = 'strong_down';
+    else if (changeRate <= -CR_TRIGGER) crSignal = 'down';
+  }
+  const windowNear = (windowDays !== null && windowDays <= WINDOW_NEAR);
+
+  // 产销比信号
+  let supplySignal = 'neutral';
+  if (prodSales !== null) {
+    if (prodSales > 105) supplySignal = 'strong_demand';
+    else if (prodSales > 100) supplySignal = 'good_demand';
+    else if (prodSales < 95) supplySignal = 'weak_demand';
+    else if (prodSales < 100) supplySignal = 'slow_demand';
+  }
+
+  // 批零价差信号（阈值从小到大判断，修复死分支）
+  let retailSpreadSignal = 'normal';
+  if (retailSpread !== null) {
+    if (retailSpread < 100) retailSpreadSignal = 'squeezed';
+    else if (retailSpread < 200) retailSpreadSignal = 'narrow';
+    else if (retailSpread < 400) retailSpreadSignal = 'normal';
+    else if (retailSpread < 800) retailSpreadSignal = 'healthy';
+    else retailSpreadSignal = 'wide';
+  }
+
+  // === SCORING ===
+  let buyScore = 0, sellScore = 0;
+  const reasons = [];
+
+  // 三地变化率（国内调价主信号，权重最高）
+  if (crSignal === 'up' || crSignal === 'strong_up') {
+    let s = (crSignal === 'strong_up') ? 3 : 2;
+    if (windowNear) s += 1;
+    buyScore += s;
+    reasons.push(`三地变化率 +${changeRate.toFixed(2)}%，调价上调预期${windowNear ? '且窗口临近' : ''}，批发跟涨，利于持货/补库`);
+  }
+  if (crSignal === 'down' || crSignal === 'strong_down') {
+    let s = (crSignal === 'strong_down') ? 3 : 2;
+    if (windowNear) s += 1;
+    sellScore += s;
+    reasons.push(`三地变化率 ${changeRate.toFixed(2)}%，调价下调预期${windowNear ? '且窗口临近' : ''}，防库存贬值，加快去库`);
+  }
+
+  // 布伦特（国际，次级）
+  if (brentTrend === 'rising' || brentTrend === 'rising_strong') {
+    buyScore += 2; reasons.push('布伦特上涨，国际油价支撑');
+  }
+  if (brentTrend === 'falling' || brentTrend === 'falling_strong') {
+    sellScore += 2; reasons.push('布伦特下跌，国际油价走弱');
+  }
+
+  // 采购价动量（已实现的市场方向）
+  if (procTrend === 'rising') {
+    buyScore += 1; reasons.push(`采购价较上期 +${procMomPct.toFixed(1)}%，市场跟涨，提前补库锁价`);
+  }
+  if (procTrend === 'falling') {
+    sellScore += 1; reasons.push(`采购价较上期 ${procMomPct.toFixed(1)}%，市场走弱，控制采购`);
+  }
+
+  // 产销比
+  if (supplySignal === 'strong_demand' || supplySignal === 'good_demand') {
+    buyScore += 2; reasons.push('产销比>100%（销大于产），去库存中，需求旺');
+  }
+  if (supplySignal === 'weak_demand' || supplySignal === 'slow_demand') {
+    sellScore += 2; reasons.push('产销比<100%（产大于销），累库中，需求弱');
+  }
+
+  // 批零价差
+  if (retailSpreadSignal === 'wide' || retailSpreadSignal === 'healthy') {
+    buyScore += 2; reasons.push('批零价差充裕，利润空间好，适合补库');
+  }
+  if (retailSpreadSignal === 'squeezed' || retailSpreadSignal === 'narrow') {
+    sellScore += 2; reasons.push('批零价差收窄，利润空间薄，控制采购');
+  }
+
+  // 库存浮盈（现价 vs 成本，已可正确计算）
+  if (inventoryPnl !== null && inventoryPnl > PNL_TAKE) {
+    sellScore += 2; reasons.push(`现价高于库存成本 ¥${inventoryPnl.toFixed(0)}/吨，浮盈可择机兑现`);
+  }
+
+  let decision = 'hold', label = '⏸ 观望';
+  if (buyScore >= 4 && buyScore > sellScore + 1) {
+    decision = 'buy'; label = buyScore >= 6 ? '🟢 强烈买入/补库' : '🟢 择机补库';
+  } else if (sellScore >= 4 && sellScore > buyScore + 1) {
+    decision = 'sell'; label = sellScore >= 6 ? '🔴 强烈出货/去库' : '🔴 逐步出货';
+  } else if (buyScore >= 2 && buyScore > sellScore) {
+    decision = 'hold_buy'; label = '🟡 观望偏多';
+  } else if (sellScore >= 2 && sellScore > buyScore) {
+    decision = 'hold_sell'; label = '🟡 观望偏空';
+  }
+
+  return {
+    decision, label, reasons: [...new Set(reasons)],
+    brent, changeRate, windowDays, crSignal, windowNear,
+    prodSales, procurement, retailCeil, retailSpread,
+    procTrend, procMomPct, inventoryPnl, inventoryPnlPct,
+    invQty, invCost, buyScore, sellScore
+  };
+}
+
+// =============================================
+// RENDER FUNCTIONS
+// =============================================
+function refreshAll() {
+  updateCharts();
+  updateMetrics();
+  updateDecisions();
+  updateHistoryTable();
+  updateInventorySummary();
+  updateRetailSpreadSummary();
+  updateClock();
+}
+
+function updateCharts() {
+  if (records.length === 0) {
+    [chartBrentRatio, chartProcurement, chartRetailSpread].forEach(c => {
+      c.data.labels = []; c.data.datasets.forEach(d => d.data = []); c.update();
+    });
+    return;
+  }
+  const labels = records.map((r, i) => {
+    const d = new Date(r.ts);
+    return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  });
+
+  // Chart 1: Brent + 三地变化率 + Ratios
+  chartBrentRatio.data.labels = labels;
+  chartBrentRatio.data.datasets[0].data = records.map(r => parseFloat(r.brent));
+  chartBrentRatio.data.datasets[1].data = records.map(r => (r.changeRate !== undefined && r.changeRate !== null && r.changeRate !== '') ? parseFloat(r.changeRate) : null);
+  chartBrentRatio.data.datasets[2].data = records.map(r => r.ratioGas ? parseFloat(r.ratioGas) : null);
+  chartBrentRatio.data.datasets[3].data = records.map(r => r.ratioDiesel ? parseFloat(r.ratioDiesel) : null);
+  chartBrentRatio.update();
+
+  // Chart 2: Procurement prices
+  chartProcurement.data.labels = labels;
+  chartProcurement.data.datasets[0].data = records.map(r => r.proc92 ? parseFloat(r.proc92) : null);
+  chartProcurement.data.datasets[1].data = records.map(r => r.proc95 ? parseFloat(r.proc95) : null);
+  chartProcurement.data.datasets[2].data = records.map(r => r.proc0 ? parseFloat(r.proc0) : null);
+  chartProcurement.update();
+
+  // Chart 3: Retail spread
+  chartRetailSpread.data.labels = labels;
+  chartRetailSpread.data.datasets[0].data = records.map(r => {
+    if (r.retail92 && r.proc92) return (parseFloat(r.retail92) - parseFloat(r.proc92)).toFixed(0);
+    return null;
+  });
+  chartRetailSpread.data.datasets[1].data = records.map(r => {
+    if (r.retail95 && r.proc95) return (parseFloat(r.retail95) - parseFloat(r.proc95)).toFixed(0);
+    return null;
+  });
+  chartRetailSpread.data.datasets[2].data = records.map(r => {
+    if (r.retail0 && r.proc0) return (parseFloat(r.retail0) - parseFloat(r.proc0)).toFixed(0);
+    return null;
+  });
+  chartRetailSpread.update();
+}
+
+function updateMetrics() {
+  const $b = document.getElementById('metricBrent');
+  const $cr = document.getElementById('metricChangeRate');
+  const $w = document.getElementById('metricWindow');
+  if (records.length === 0) {
+    $b.textContent = '--'; $cr.textContent = '--'; $cr.style.color = '';
+    $w.textContent = '--'; $w.style.color = '';
+    return;
+  }
+  const last = records[records.length - 1];
+  $b.textContent = '$' + parseFloat(last.brent).toFixed(2);
+
+  if (last.changeRate !== undefined && last.changeRate !== null && last.changeRate !== '') {
+    const cr = parseFloat(last.changeRate);
+    $cr.textContent = (cr > 0 ? '+' : '') + cr.toFixed(2) + '%';
+    // 红涨绿跌
+    $cr.style.color = cr > 0.05 ? '#ff5252' : (cr < -0.05 ? '#00c897' : 'var(--text-muted)');
+  } else { $cr.textContent = '--'; $cr.style.color = ''; }
+
+  if (last.windowDays !== undefined && last.windowDays !== null && last.windowDays !== '') {
+    const wd = parseFloat(last.windowDays);
+    $w.textContent = wd + ' 工作日';
+    $w.style.color = wd <= 2 ? 'var(--yellow)' : '';
+  } else { $w.textContent = '--'; $w.style.color = ''; }
+}
+
+function updateDecisions() {
+  if (records.length === 0) {
+    PRODUCTS.forEach(p => resetDecisionCard(p));
+    $topSignal.className = 'signal-pill neutral';
+    $topSignal.textContent = '● 等待数据录入';
+    return;
+  }
+
+  const results = {};
+  PRODUCTS.forEach(p => { results[p] = analyzeProduct(p, records); });
+
+  // Determine overall signal from combined scores
+  let totalBuy = 0, totalSell = 0;
+  PRODUCTS.forEach(p => {
+    if (results[p]) { totalBuy += results[p].buyScore; totalSell += results[p].sellScore; }
+  });
+
+  if (totalSell > totalBuy + 3) {
+    $topSignal.className = 'signal-pill bearish';
+    $topSignal.textContent = '🔴 市场偏空';
+  } else if (totalBuy > totalSell + 3) {
+    $topSignal.className = 'signal-pill bullish';
+    $topSignal.textContent = '🟢 市场偏多';
+  } else {
+    $topSignal.className = 'signal-pill neutral';
+    $topSignal.textContent = '🟡 市场中性';
+  }
+
+  PRODUCTS.forEach(p => {
+    const r = results[p];
+    if (!r) { resetDecisionCard(p); return; }
+    const card = document.getElementById('dc'+p);
+    const clsMap = { buy: 'buy', sell: 'sell', hold: 'hold', hold_buy: 'hold', hold_sell: 'hold' };
+    card.className = 'decision-card ' + (clsMap[r.decision] || 'hold');
+    card.querySelector('.dc-badge').className = 'dc-badge ' + (clsMap[r.decision] || 'hold');
+    card.querySelector('.dc-badge').textContent = r.label;
+    card.querySelector('.dc-summary').innerHTML = `
+      布伦特 <strong>$${r.brent.toFixed(2)}</strong> | 三地 <strong>${r.changeRate != null ? (r.changeRate>0?'+':'')+r.changeRate.toFixed(2)+'%' : '--'}</strong>${r.windowNear ? ' <span style="color:var(--yellow)">窗口临近</span>' : ''}<br>
+      产销比 <strong>${r.prodSales != null ? r.prodSales.toFixed(1)+'%' : '--'}</strong> |
+      采购 <strong>${r.procurement != null ? '¥'+r.procurement.toFixed(0) : '--'}</strong><br>
+      批零价差 <strong>${r.retailSpread != null ? '¥'+r.retailSpread.toFixed(0) : '--'}</strong> |
+      库存浮盈 <strong style="${r.inventoryPnl != null ? (r.inventoryPnl>=0?'color:#00c897':'color:#ff5252') : ''}">${r.inventoryPnl != null ? (r.inventoryPnl>=0?'+':'')+'¥'+r.inventoryPnl.toFixed(0)+'/吨' : '--'}</strong><br>
+      库存 <strong>${r.invQty != null ? r.invQty.toFixed(0)+'吨' : '--'}</strong> |
+      成本 <strong>${r.invCost != null ? '¥'+r.invCost.toFixed(0) : '--'}</strong>
+      ${r.reasons.length ? '<br><span style="color:var(--accent);font-size:10px">▸ '+r.reasons.slice(0,3).join('<br>▸ ')+'</span>' : ''}
+    `;
+  });
+}
+
+function resetDecisionCard(p) {
+  const card = document.getElementById('dc'+p);
+  card.className = 'decision-card hold';
+  card.querySelector('.dc-badge').className = 'dc-badge hold';
+  card.querySelector('.dc-badge').textContent = '⏸ 观望';
+  card.querySelector('.dc-summary').textContent = '等待录入数据...';
+}
+
+function updateRetailSpreadSummary() {
+  const el = document.getElementById('retailSpreadSummary');
+  if (records.length === 0) { el.textContent = '等待录入数据...'; return; }
+  const last = records[records.length - 1];
+  let html = '';
+  PRODUCTS.forEach(p => {
+    const retail = last['retail'+p] ? parseFloat(last['retail'+p]) : null;
+    const proc = last['proc'+p] ? parseFloat(last['proc'+p]) : null;
+    const sp = (retail && proc) ? (retail - proc).toFixed(0) : null;
+    const cls = sp ? (sp >= 400 ? 'color:#00c897' : (sp < 200 ? 'color:#ff5252' : '')) : '';
+    html += `<div>${PRODUCT_LABELS[p]}：限价 <strong>${retail != null ? '¥'+retail.toFixed(0) : '--'}</strong> | 采购 <strong>${proc != null ? '¥'+proc.toFixed(0) : '--'}</strong> | 价差 <strong style="${cls}">${sp != null ? '¥'+sp : '--'}</strong></div>`;
+  });
+  el.innerHTML = html;
+}
+
+function updateInventorySummary() {
+  const el = document.getElementById('inventorySummary');
+  if (records.length === 0) { el.textContent = '等待录入数据...'; return; }
+  const last = records[records.length - 1];
+  let html = '';
+  PRODUCTS.forEach(p => {
+    const qty = last['invQty'+p] ? parseFloat(last['invQty'+p]) : null;
+    const cost = last['invCost'+p] ? parseFloat(last['invCost'+p]) : null;
+    const mkt = last['proc'+p] ? parseFloat(last['proc'+p]) : null; // 市场价锚点=当日采购价
+    if (qty === null) { html += `<div>${PRODUCT_LABELS[p]}：--</div>`; return; }
+    if (mkt === null) {
+      // 无当日采购价，仅展示成本市值
+      const costTotal = cost ? (qty * cost / 10000).toFixed(1) : '--';
+      html += `<div>${PRODUCT_LABELS[p]}：${qty.toFixed(0)}吨 | 成本 ¥${cost ? cost.toFixed(0) : '--'}/吨 | 成本市值 ¥${costTotal}万 | <span style="color:var(--text-muted)">浮盈亏 待采购价</span></div>`;
+      return;
+    }
+    const mktValue = (qty * mkt / 10000).toFixed(1);
+    if (cost === null) {
+      html += `<div>${PRODUCT_LABELS[p]}：${qty.toFixed(0)}吨 | 成本 --/吨 | 市值 ¥${mktValue}万 | <span style="color:var(--text-muted)">浮盈亏 待成本</span></div>`;
+      return;
+    }
+    const pnlVal = (mkt - cost) * qty / 10000; // 万元
+    const pnlCls = pnlVal >= 0 ? 'color:#00c897' : 'color:#ff5252';
+    html += `<div>${PRODUCT_LABELS[p]}：${qty.toFixed(0)}吨 | 成本 ¥${cost.toFixed(0)}/吨 | 市值 ¥${mktValue}万 | <span style="${pnlCls}">浮${pnlVal >= 0 ? '盈' : '亏'} ¥${Math.abs(pnlVal).toFixed(1)}万</span></div>`;
+  });
+  el.innerHTML = html;
+}
+
+function updateHistoryTable() {
+  $recordCount.textContent = `共 ${records.length} 条`;
+  if (records.length === 0) {
+    $historyBody.innerHTML = '<tr><td colspan="16" style="text-align:center;color:var(--text-muted);padding:24px">暂无数据</td></tr>';
+    return;
+  }
+  const recent = [...records].reverse();
+  $historyBody.innerHTML = recent.map((r, i) => {
+    const d = new Date(r.ts);
+    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const pm = { morning: '🌅早', midday: '☀️午', evening: '🌙晚' };
+    const idx = records.length - 1 - i;
+    let crCell = '--';
+    if (r.changeRate !== undefined && r.changeRate !== null && r.changeRate !== '') {
+      const cr = parseFloat(r.changeRate);
+      const c = cr > 0.05 ? '#ff5252' : (cr < -0.05 ? '#00c897' : 'var(--text-muted)');
+      crCell = `<span style="color:${c}">${cr > 0 ? '+' : ''}${cr.toFixed(2)}%</span>`;
+    }
+    return `<tr>
+      <td>${ds}</td><td>${pm[r.period]||r.period}</td><td>$${parseFloat(r.brent).toFixed(2)}</td>
+      <td>${crCell}</td>
+      <td>${r.ratioGas ? parseFloat(r.ratioGas).toFixed(1)+'%' : '--'}</td>
+      <td>${r.ratioDiesel ? parseFloat(r.ratioDiesel).toFixed(1)+'%' : '--'}</td>
+      <td>${r.proc92 ? '¥'+parseFloat(r.proc92).toFixed(0) : '--'}</td>
+      <td>${r.proc95 ? '¥'+parseFloat(r.proc95).toFixed(0) : '--'}</td>
+      <td>${r.proc0 ? '¥'+parseFloat(r.proc0).toFixed(0) : '--'}</td>
+      <td>${r.retail92 ? '¥'+parseFloat(r.retail92).toFixed(0) : '--'}</td>
+      <td>${r.retail95 ? '¥'+parseFloat(r.retail95).toFixed(0) : '--'}</td>
+      <td>${r.retail0 ? '¥'+parseFloat(r.retail0).toFixed(0) : '--'}</td>
+      <td>${r.invQty92 ? parseFloat(r.invQty92).toFixed(0)+'吨' : '--'}</td>
+      <td>${r.invQty95 ? parseFloat(r.invQty95).toFixed(0)+'吨' : '--'}</td>
+      <td>${r.invQty0 ? parseFloat(r.invQty0).toFixed(0)+'吨' : '--'}</td>
+      <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="deleteRecord(${idx})">🗑</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('liveClock').textContent =
+    now.toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'long' }) +
+    '  ' + now.toLocaleTimeString('zh-CN', { hour12: false });
+}
+
+// =============================================
+// TAB SWITCHING
+// =============================================
+function switchTab(period) {
+  currentPeriod = period;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`[data-tab="${period}"]`).classList.add('active');
+
+  const badges = { morning: '早间', midday: '午间', evening: '晚间' };
+  const badgeCls = { morning: 'badge-morning', midday: 'badge-midday', evening: 'badge-evening' };
+  $periodBadge.textContent = badges[period];
+  $periodBadge.className = 'badge ' + badgeCls[period];
+
+  // Show/hide sections: ratio+procurement only in midday/evening
+  $sectionMiddayEvening.style.display = (period === 'morning') ? 'none' : 'block';
+
+  // Retail ceiling: only show in midday
+  $sectionRetailCeiling.style.display = (period === 'midday') ? 'block' : 'none';
+
+  // Pre-fill from latestValues
+  if (latestValues.brent) $inpBrent.value = latestValues.brent;
+  if (latestValues.changeRate !== null && latestValues.changeRate !== undefined) inp('inpChangeRate').value = latestValues.changeRate;
+  if (latestValues.windowDays !== null && latestValues.windowDays !== undefined) inp('inpWindowDays').value = latestValues.windowDays;
+  updateBrentChangeIndicator();
+  if (period !== 'morning') {
+    if (latestValues.ratioGas) inp('inpRatioGas').value = latestValues.ratioGas;
+    if (latestValues.ratioDiesel) inp('inpRatioDiesel').value = latestValues.ratioDiesel;
+    PRODUCTS.forEach(p => {
+      if (latestValues['proc'+p]) inp('inpProc'+p).value = latestValues['proc'+p];
+    });
+  }
+  // Inventory always pre-fill
+  PRODUCTS.forEach(p => {
+    if (latestValues['invQty'+p]) inp('inpInvQty'+p).value = latestValues['invQty'+p];
+    if (latestValues['invCost'+p]) inp('inpInvCost'+p).value = latestValues['invCost'+p];
+  });
+  // Retail ceiling (midday) from persisted
+  if (period === 'midday' && retailCeiling) {
+    PRODUCTS.forEach(p => {
+      if (retailCeiling[p]) inp('inpRetail'+p).value = retailCeiling[p];
+    });
+  }
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// =============================================
+// REAL-TIME BRENT CHANGE INDICATOR (红涨绿跌)
+// =============================================
+function getPrevBrent() {
+  // Find the most recent record to compare against
+  if (records.length === 0) return null;
+  const last = records[records.length - 1];
+  return parseFloat(last.brent);
+}
+
+function updateBrentChangeIndicator() {
+  const currentVal = parseFloat($inpBrent.value);
+  const prevVal = getPrevBrent();
+
+  if (isNaN(currentVal) || prevVal === null) {
+    $brentChange.style.display = 'none';
+    return;
+  }
+
+  const changePct = ((currentVal - prevVal) / prevVal) * 100;
+  $brentChange.style.display = 'inline-block';
+
+  if (Math.abs(changePct) < 0.05) {
+    $brentChange.textContent = '→ 持平';
+    $brentChange.className = 'brent-change flat';
+  } else if (changePct > 0) {
+    $brentChange.textContent = '↑ +' + changePct.toFixed(2) + '%';
+    $brentChange.className = 'brent-change up';
+  } else {
+    $brentChange.textContent = '↓ ' + changePct.toFixed(2) + '%';
+    $brentChange.className = 'brent-change down';
+  }
+}
+
+$inpBrent.addEventListener('input', updateBrentChangeIndicator);
+
+// =============================================
+// FORM SUBMISSION
+// =============================================
+document.getElementById('entryForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+
+  const brent = parseFloat($inpBrent.value);
+  if (isNaN(brent)) { alert('请填写布伦特原油价格'); return; }
+
+  const now = new Date();
+  const entry = {
+    ts: now.toISOString(),
+    dateShort: `${now.getMonth()+1}/${now.getDate()}`,
+    period: currentPeriod,
+    brent: brent.toFixed(2)
+  };
+
+  // 三地变化率 & 调价窗口 (all periods, optional but recommended)
+  const cr = inp('inpChangeRate').value !== '' ? parseFloat(inp('inpChangeRate').value) : null;
+  if (cr !== null && !isNaN(cr)) entry.changeRate = cr.toFixed(2);
+  else if (latestValues.changeRate !== null && latestValues.changeRate !== undefined) entry.changeRate = latestValues.changeRate;
+  const wd = inp('inpWindowDays').value !== '' ? parseInt(inp('inpWindowDays').value, 10) : null;
+  if (wd !== null && !isNaN(wd)) entry.windowDays = wd;
+  else if (latestValues.windowDays !== null && latestValues.windowDays !== undefined) entry.windowDays = latestValues.windowDays;
+
+  // Inventory (all periods) — read from form
+  let hasInv = false;
+  PRODUCTS.forEach(p => {
+    const qty = inp('inpInvQty'+p).value ? parseFloat(inp('inpInvQty'+p).value) : null;
+    const cost = inp('inpInvCost'+p).value ? parseFloat(inp('inpInvCost'+p).value) : null;
+    if (qty !== null && !isNaN(qty)) { entry['invQty'+p] = qty.toFixed(2); hasInv = true; }
+    else if (latestValues['invQty'+p]) { entry['invQty'+p] = latestValues['invQty'+p]; hasInv = true; }
+    if (cost !== null && !isNaN(cost)) { entry['invCost'+p] = cost.toFixed(2); }
+    else if (latestValues['invCost'+p]) { entry['invCost'+p] = latestValues['invCost'+p]; }
+  });
+
+  // Midday & Evening: ratio + procurement + (midday only: retail ceiling)
+  if (currentPeriod !== 'morning') {
+    // Prod-sales ratio
+    const ratioGas = inp('inpRatioGas').value ? parseFloat(inp('inpRatioGas').value) : null;
+    const ratioDiesel = inp('inpRatioDiesel').value ? parseFloat(inp('inpRatioDiesel').value) : null;
+    if (ratioGas === null || ratioDiesel === null) { alert('请填写汽油和柴油产销比'); return; }
+    entry.ratioGas = ratioGas.toFixed(1);
+    entry.ratioDiesel = ratioDiesel.toFixed(1);
+
+    // Procurement
+    let hasProc = false;
+    PRODUCTS.forEach(p => {
+      const proc = inp('inpProc'+p).value ? parseFloat(inp('inpProc'+p).value) : null;
+      if (proc !== null && !isNaN(proc)) { entry['proc'+p] = proc.toFixed(2); hasProc = true; }
+    });
+    if (!hasProc) { alert('请至少填写一个品类的采购价格'); return; }
+
+    // Retail ceiling (midday only) — persist
+    if (currentPeriod === 'midday') {
+      let hasRetail = false;
+      if (!retailCeiling) retailCeiling = {};
+      PRODUCTS.forEach(p => {
+        const rtl = inp('inpRetail'+p).value ? parseFloat(inp('inpRetail'+p).value) : null;
+        if (rtl !== null && !isNaN(rtl)) {
+          entry['retail'+p] = rtl.toFixed(2);
+          retailCeiling[p] = rtl;
+          hasRetail = true;
+        }
+      });
+      if (hasRetail) {
+        retailCeiling['updatedAt'] = now.toISOString();
+        saveRetailCeiling();
+        updateRetailCeilingDisplay();
+      }
+    } else {
+      // Evening: carry forward last known retail ceiling
+      if (retailCeiling) {
+        PRODUCTS.forEach(p => {
+          if (retailCeiling[p]) entry['retail'+p] = retailCeiling[p].toFixed(2);
+        });
+      }
+    }
+
+  }
+
+  // Carry forward retail ceiling for all periods (from persisted)
+  if (retailCeiling) {
+    PRODUCTS.forEach(p => {
+      if (retailCeiling[p]) entry['retail'+p] = retailCeiling[p].toFixed(2);
+    });
+  }
+
+  records.push(entry);
+  saveRecords();
+  rebuildLatestValues();
+
+  // Clear form but keep retail ceiling
+  $inpBrent.value = '';
+  $brentChange.style.display = 'none';
+  inp('inpChangeRate').value = '';
+  inp('inpWindowDays').value = '';
+  PRODUCTS.forEach(p => {
+    inp('inpInvQty'+p).value = '';
+    inp('inpInvCost'+p).value = '';
+    inp('inpProc'+p).value = '';
+    inp('inpRetail'+p).value = '';
+  });
+  inp('inpRatioGas').value = '';
+  inp('inpRatioDiesel').value = '';
+  // Restore retail ceiling
+  if (retailCeiling) {
+    PRODUCTS.forEach(p => { if (retailCeiling[p] && inp('inpRetail'+p)) inp('inpRetail'+p).value = retailCeiling[p]; });
+  }
+  // Carry forward 三地变化率/调价窗口 (周期级上下文)
+  if (latestValues.changeRate !== null && latestValues.changeRate !== undefined) inp('inpChangeRate').value = latestValues.changeRate;
+  if (latestValues.windowDays !== null && latestValues.windowDays !== undefined) inp('inpWindowDays').value = latestValues.windowDays;
+
+  refreshAll();
+
+  // Flash
+  const dc = document.getElementById('dc92');
+  dc.style.transition = 'none'; dc.style.transform = 'scale(1.02)';
+  setTimeout(() => { dc.style.transition = '0.3s ease'; dc.style.transform = 'scale(1)'; }, 100);
+});
+
+// Clear period
+document.getElementById('btnClearPeriod').addEventListener('click', function() {
+  $inpBrent.value = '';
+  $brentChange.style.display = 'none';
+  inp('inpChangeRate').value = ''; inp('inpWindowDays').value = '';
+  PRODUCTS.forEach(p => {
+    inp('inpInvQty'+p).value = ''; inp('inpInvCost'+p).value = '';
+    inp('inpProc'+p).value = ''; inp('inpRetail'+p).value = '';
+  });
+  inp('inpRatioGas').value = ''; inp('inpRatioDiesel').value = '';
+  if (retailCeiling) {
+    PRODUCTS.forEach(p => { if (retailCeiling[p] && inp('inpRetail'+p)) inp('inpRetail'+p).value = retailCeiling[p]; });
+  }
+});
+
+// Clear all
+document.getElementById('btnClearAll').addEventListener('click', function() {
+  if (records.length === 0 && !retailCeiling) return;
+  if (!confirm(`确定删除全部 ${records.length} 条记录和零售限价设置？不可撤销。`)) return;
+  records = [];
+  retailCeiling = null;
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(RETAIL_KEY);
+  latestValues = {};
+  $inpBrent.value = ''; $brentChange.style.display = 'none'; $rcUpdateDate.textContent = '未设置';
+  inp('inpChangeRate').value = ''; inp('inpWindowDays').value = '';
+  PRODUCTS.forEach(p => {
+    inp('inpInvQty'+p).value = ''; inp('inpInvCost'+p).value = '';
+    inp('inpProc'+p).value = ''; inp('inpRetail'+p).value = '';
+  });
+  inp('inpRatioGas').value = ''; inp('inpRatioDiesel').value = '';
+  refreshAll();
+});
+
+// Delete record
+function deleteRecord(idx) {
+  if (!confirm('确定删除这条记录吗？')) return;
+  records.splice(idx, 1);
+  saveRecords();
+  rebuildLatestValues();
+  refreshAll();
+}
+
+// Export CSV
+document.getElementById('btnExport').addEventListener('click', function() {
+  if (records.length === 0) { alert('暂无数据'); return; }
+  const h = '时间,时段,布伦特($/桶),三地变化率(%),距调价窗口(工作日),汽油产销比(%),柴油产销比(%),92#采购,95#采购,0#采购,92#限价,95#限价,0#限价,92#库存(吨),95#库存(吨),0#库存(吨),92#成本,95#成本,0#成本\n';
+  const rows = records.map(r => {
+    const d = new Date(r.ts);
+    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    return [ds, r.period, r.brent, (r.changeRate!=null?r.changeRate:''), (r.windowDays!=null?r.windowDays:''), r.ratioGas||'', r.ratioDiesel||'', r.proc92||'', r.proc95||'', r.proc0||'', r.retail92||'', r.retail95||'', r.retail0||'', r.invQty92||'', r.invQty95||'', r.invQty0||'', r.invCost92||'', r.invCost95||'', r.invCost0||''].join(',');
+  }).join('\n');
+  const blob = new Blob(['﻿'+h+rows], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `成品油决策数据_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+// Demo data
+document.getElementById('btnDemo').addEventListener('click', function() {
+  if (records.length > 0 && !confirm('已有数据，演示将追加在末尾。继续？')) return;
+  const base = new Date();
+  const b = base.getFullYear(), m = base.getMonth(), d = base.getDate();
+
+  // Set retail ceiling first
+  retailCeiling = { '92': 9800, '95': 10500, '0': 8500, updatedAt: new Date(b,m,d,12,0,0).toISOString() };
+  saveRetailCeiling();
+  updateRetailCeilingDisplay();
+  PRODUCTS.forEach(p => { if (retailCeiling[p] && inp('inpRetail'+p)) inp('inpRetail'+p).value = retailCeiling[p]; });
+
+  const demo = [
+    { h:8, mi:15, period:'morning', brent:83.20, changeRate:1.90, windowDays:3, invQty92:2000, invCost92:7600, invQty95:1500, invCost95:8100, invQty0:1800, invCost0:6800 },
+    { h:12, mi:10, period:'midday', brent:82.50, changeRate:1.55, windowDays:2, ratioGas:94.3, ratioDiesel:91.5, proc92:7850, proc95:8280, proc0:6920, invQty92:2000, invCost92:7600, invQty95:1500, invCost95:8100, invQty0:1800, invCost0:6800 },
+    { h:18, mi:5, period:'evening', brent:81.80, changeRate:1.10, windowDays:1, ratioGas:92.1, ratioDiesel:88.7, proc92:7820, proc95:8250, proc0:6900, invQty92:2000, invCost92:7600, invQty95:1500, invCost95:8100, invQty0:1800, invCost0:6800 },
+  ];
+
+  demo.forEach(item => {
+    const ts = new Date(b, m, d, item.h, item.mi, 0);
+    const entry = {
+      ts: ts.toISOString(), dateShort: `${m+1}/${d}`, period: item.period,
+      brent: item.brent.toFixed(2)
+    };
+    if (item.changeRate !== undefined) entry.changeRate = item.changeRate.toFixed(2);
+    if (item.windowDays !== undefined) entry.windowDays = item.windowDays;
+    if (item.ratioGas) entry.ratioGas = item.ratioGas.toFixed(1);
+    if (item.ratioDiesel) entry.ratioDiesel = item.ratioDiesel.toFixed(1);
+    PRODUCTS.forEach(p => {
+      if (item['proc'+p]) entry['proc'+p] = item['proc'+p].toFixed(2);
+      if (item['invQty'+p]) entry['invQty'+p] = item['invQty'+p].toFixed(2);
+      if (item['invCost'+p]) entry['invCost'+p] = item['invCost'+p].toFixed(2);
+      if (retailCeiling && retailCeiling[p]) entry['retail'+p] = retailCeiling[p].toFixed(2);
+    });
+    records.push(entry);
+  });
+
+  saveRecords();
+  rebuildLatestValues();
+  refreshAll();
+});
+
+// =============================================
+// INIT
+// =============================================
+switchTab('morning');
+refreshAll();
+setInterval(updateClock, 10000);
+</script>
+</body>
+</html>
